@@ -1,0 +1,29 @@
+services:
+  postgres-blog-api:
+    image: postgres:16
+    expose:
+      - 5432
+    env_file:
+      - ./.env
+    volumes:
+      - postgres-blog-api-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  blog-api:
+    image: blog_api
+    build: .
+    command: sh -c "alembic upgrade head && uvicorn src.main:app --host $PROJECT_HOST --port $PROJECT_PORT"
+    ports:
+      - 8000:8000
+    env_file:
+      - ./.env
+    depends_on:
+      postgres-blog-api:
+        condition: service_healthy
+
+volumes:
+  postgres-blog-api-data:
