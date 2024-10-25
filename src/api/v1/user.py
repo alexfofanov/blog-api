@@ -4,23 +4,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.auth import (
-    authenticate_user,
-    create_access_token,
-    get_current_user,
-    hash_password,
-)
+from src.core.auth import authenticate_user, create_access_token, hash_password
 from src.core.config import settings
 from src.db.postgres import get_session
-from src.schemas.user import (
-    AccessToken,
-    Status,
-    User,
-    UserCreate,
-    UserLogin,
-)
-
 from src.repositories.user import user_crud
+from src.schemas.user import AccessToken, User, UserCreate, UserLogin
 
 user_router = APIRouter()
 

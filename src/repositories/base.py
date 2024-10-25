@@ -2,12 +2,10 @@ from typing import Any, Generic, Type, TypeVar
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.base import Base
-
-from sqlalchemy import select
-
 
 ModelType = TypeVar('ModelType', bound=Base)
 CreateSchemaType = TypeVar('CreateSchemaType', bound=BaseModel)
@@ -38,20 +36,20 @@ class RepositoryDB(
     def __init__(self, model: Type[ModelType]) -> None:
         self._model = model
 
-    async def get(self, db: AsyncSession, id: Any) -> ModelType | None:
-        statement = select(self._model).where(self._model.id == id)
-        results = await db.execute(statement=statement)
+    async def get(self, db: AsyncSession, obj_id: Any) -> ModelType | None:
+        stmt = select(self._model).where(self._model.id == obj_id)
+        results = await db.execute(statement=stmt)
         return results.scalar_one_or_none()
 
     async def get_multi(
-            self, db: AsyncSession, *, offset: int, limit: int
+        self, db: AsyncSession, *, offset: int, limit: int
     ) -> list[ModelType]:
-        statement = select(self._model).offset(offset).limit(limit)
-        results = await db.execute(statement=statement)
+        stmt = select(self._model).offset(offset).limit(limit)
+        results = await db.execute(statement=stmt)
         return results.scalars().all()
 
     async def create(
-            self, db: AsyncSession, *, obj: CreateSchemaType
+        self, db: AsyncSession, *, obj: CreateSchemaType
     ) -> ModelType:
         obj_data = jsonable_encoder(obj)
         db_obj = self._model(**obj_data)
@@ -60,8 +58,8 @@ class RepositoryDB(
         await db.refresh(db_obj)
         return db_obj
 
-    async def delete(self, db: AsyncSession, id: Any) -> ModelType | None:
-        obj = await self.get(db=db, id=id)
+    async def delete(self, db: AsyncSession, obj_id: Any) -> ModelType | None:
+        obj = await self.get(db=db, obj_id=obj_id)
         if not obj:
             return None
 
@@ -70,15 +68,16 @@ class RepositoryDB(
         return obj
 
     async def patch(
-            self, db: AsyncSession, id: Any, data: UpdateSchemaType
+        self, db: AsyncSession, obj_id: Any, data: UpdateSchemaType
     ) -> ModelType | None:
-        obj = await self.get(db=db, id=id)
+        obj = await self.get(db=db, obj_id=obj_id)
         if not obj:
             return None
 
         obj_data = jsonable_encoder(data)
         for key, value in obj_data.items():
-            setattr(obj, key, value)
+            if value is not None:
+                setattr(obj, key, value)
 
         await db.commit()
         await db.refresh(obj)
