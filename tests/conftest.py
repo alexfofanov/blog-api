@@ -2,14 +2,14 @@ import asyncpg
 import pytest
 from fastapi import Depends
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import NullPool
+from sqlalchemy import NullPool, insert
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 
-from src.core.auth import get_current_user
+from src.core.auth import get_current_user, hash_password
 from src.core.config import settings
 from src.db.postgres import get_session
 from src.main import app
@@ -61,20 +61,20 @@ async def db_engine(create_test_database):
     await engine.dispose()
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 async def db_session_factory(db_engine):
     return async_sessionmaker(
         bind=db_engine, class_=AsyncSession, expire_on_commit=False
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 async def db_session(db_session_factory):
     async with db_session_factory() as session:
         yield session
 
 
-@pytest.fixture()
+@pytest.fixture(scope='module')
 async def async_client(db_session_factory):
     async def override_get_session():
         async with db_session_factory() as session:
@@ -87,8 +87,18 @@ async def async_client(db_session_factory):
         yield ac
 
 
-@pytest.fixture()
-async def headers():
+@pytest.fixture(scope='module')
+async def create_test_user(db_session):
+    stmt = insert(User).values(
+        login=TEST_USER['login'],
+        password=hash_password(TEST_USER['password']),
+    )
+    await db_session.execute(stmt)
+    await db_session.commit()
+
+
+@pytest.fixture(scope='module')
+async def headers(create_test_user):
     async with AsyncClient(app=app, base_url='http://test') as async_client:
         response = await async_client.post(
             f'{URL_PREFIX_AUTH}/auth', json=TEST_USER

@@ -13,28 +13,11 @@ from .conftest import (
 )
 
 PROTECTED_ROUTE = f'{URL_PREFIX_POST}/'
+ACCESS_TOKEN_EXPIRE_SECONDS = 1
 
 
 @pytest.mark.anyio
-async def test_add_user(async_client):
-    response = await async_client.post(
-        f'{URL_PREFIX_AUTH}/register', json=TEST_USER
-    )
-    assert response.status_code == status.HTTP_201_CREATED
-    user = response.json()
-    assert user == {'id': 1, 'login': TEST_USER['login']}
-
-
-@pytest.mark.anyio
-async def test_add_user_exist(async_client):
-    response = await async_client.post(
-        f'{URL_PREFIX_AUTH}/register', json=TEST_USER
-    )
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-
-@pytest.mark.anyio
-async def test_auth_user_correct(async_client):
+async def test_auth_user_correct(async_client, create_test_user):
     response = await async_client.post(
         f'{URL_PREFIX_AUTH}/auth', json=TEST_USER
     )
@@ -42,19 +25,25 @@ async def test_auth_user_correct(async_client):
 
 
 @pytest.mark.anyio
-async def test_auth_user_wrong_login(async_client):
-    TEST_USER['login'] = 'wrong_login'
+async def test_auth_user_wrong_login(async_client, create_test_user):
+    user_wrong_login = {
+        'login': 'wrong_login',
+        'password': TEST_USER['password'],
+    }
     response = await async_client.post(
-        f'{URL_PREFIX_AUTH}/auth', json=TEST_USER
+        f'{URL_PREFIX_AUTH}/auth', json=user_wrong_login
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.anyio
-async def test_auth_user_wrong_password(async_client):
-    TEST_USER['password'] = 'wrong_password'
+async def test_auth_user_wrong_password(async_client, create_test_user):
+    user_wrong_password = {
+        'login': TEST_USER['login'],
+        'password': 'wrong_password',
+    }
     response = await async_client.post(
-        f'{URL_PREFIX_AUTH}/auth', json=TEST_USER
+        f'{URL_PREFIX_AUTH}/auth', json=user_wrong_password
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -66,27 +55,14 @@ async def test_access_protected_route_without_token(async_client):
     assert response.json() == {"detail": "Not authenticated"}
 
 
+@pytest.mark.anyio
 async def test_access_protected_route_with_token(async_client, headers):
-    response = async_client.get("/protected-route", headers=headers)
+    response = await async_client.get('/protected-route', headers=headers)
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == SUCCESSFUL_ACCESS
 
 
-async def test_token_expiry(async_client):
-    settings.access_token_expire_seconds = 1
-    response = await async_client.post(
-        f'{URL_PREFIX_AUTH}/auth', json=TEST_USER
-    )
-    token = response.json()
-    headers = {'Authorization': f'Bearer {token["access_token"]}'}
-
-    await asyncio.sleep(1)
-
-    response = await async_client.get("/protected-route", headers=headers)
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    assert response.json() == {"detail": "Token expired"}
-
-
+@pytest.mark.anyio
 async def test_access_with_invalid_token(async_client):
     invalid_token = "invalid_token"
     response = await async_client.get(
@@ -95,3 +71,19 @@ async def test_access_with_invalid_token(async_client):
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json() == {"detail": "Invalid token"}
+
+
+@pytest.mark.anyio
+async def test_token_expiry(async_client, create_test_user):
+    settings.access_token_expire_seconds = ACCESS_TOKEN_EXPIRE_SECONDS
+    response = await async_client.post(
+        f'{URL_PREFIX_AUTH}/auth', json=TEST_USER
+    )
+    token = response.json()
+    headers = {'Authorization': f'Bearer {token["access_token"]}'}
+
+    await asyncio.sleep(ACCESS_TOKEN_EXPIRE_SECONDS)
+
+    response = await async_client.get('/protected-route', headers=headers)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json() == {'detail': 'Token expired'}

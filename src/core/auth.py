@@ -3,14 +3,14 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jwt import InvalidTokenError
+from jwt import ExpiredSignatureError, InvalidTokenError
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.db.postgres import get_session
-from src.schemas.user import User
 from src.repositories.user import user_crud
+from src.schemas.user import User
 
 ALGORITHM = 'HS256'
 
@@ -82,8 +82,14 @@ async def get_current_user(
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+        detail='Invalid token',
+        headers={'WWW-Authenticate': 'Bearer'},
+    )
+
+    expired_token_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail='Token expired',
+        headers={'WWW-Authenticate': 'Bearer'},
     )
 
     try:
@@ -93,6 +99,8 @@ async def get_current_user(
         login: str = payload.get('sub')
         if login is None:
             raise credentials_exception
+    except ExpiredSignatureError:
+        raise expired_token_exception
     except InvalidTokenError:
         raise credentials_exception
 
