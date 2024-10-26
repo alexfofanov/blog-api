@@ -19,6 +19,9 @@ passlib = "^1.7.4"
 bcrypt = "4.0.1"
 
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
