@@ -39,6 +39,7 @@ async def get_posts(
 @post_router.get(
     '/{post_id}',
     response_model=PostInDB,
+    status_code=status.HTTP_200_OK,
     summary='Получение поста',
     description='Возвращает пост по идентификатору',
 )
@@ -64,6 +65,7 @@ async def get_post(
 @post_router.post(
     '/',
     response_model=PostInDB,
+    status_code=status.HTTP_201_CREATED,
     summary='Создание поста',
     description='Создаёт пост в блоге',
 )
@@ -85,6 +87,7 @@ async def create_post(
 @post_router.delete(
     '/{post_id}',
     response_model=PostInDB,
+    status_code=status.HTTP_200_OK,
     summary='Удаление поста',
     description='Удаляет пост в блоге',
 )
@@ -93,13 +96,11 @@ async def delete_post(
     *,
     db: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
-    post: PostCreate,
 ) -> Any:
     """
     Удаление поста
     """
 
-    post.user_id = user.id
     post = await post_crud.delete(db=db, obj_id=post_id)
     if not post:
         raise HTTPException(
@@ -128,7 +129,7 @@ async def update_post(
     """
 
     data.user_id = user.id
-    post = await post_crud.patch(db=db, id=post_id, data=data)
+    post = await post_crud.patch(db=db, obj_id=post_id, data=data)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -140,10 +141,11 @@ async def update_post(
 
 @post_router.get(
     '/statistics/{user_id}',
+    status_code=status.HTTP_200_OK,
     summary='Получение среднего количества постов пользователя за месяц',
     description='Возвращает среднее количества постов пользователя за месяц',
 )
-async def get_user_avg_posts_by_month(
+async def get_user_avg_posts_month(
     user_id: int,
     *,
     db: AsyncSession = Depends(get_session),
@@ -152,16 +154,17 @@ async def get_user_avg_posts_by_month(
     Получение среднего количества постов пользователя за месяц
     """
 
-    avg_posts_per_month_for_user = await retrieve_avg_posts_per_month(
+    avg_posts_month = await retrieve_avg_posts_per_month(
         db=db, user_id=user_id
     )
 
-    return {'avg_posts_per_month_for_user': avg_posts_per_month_for_user}
+    return {'avg_posts_month': avg_posts_month}
 
 
 @post_router.get(
     '/search/{search_str}',
     response_model=list[PostInDB],
+    status_code=status.HTTP_200_OK,
     summary='Поиск постов по названию или содержанию',
     description='Возвращает посты отфильтрованные по названию или содержанию',
 )

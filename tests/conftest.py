@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import asyncpg
 import pytest
 from fastapi import Depends
@@ -13,12 +15,14 @@ from src.core.auth import get_current_user, hash_password
 from src.core.config import settings
 from src.db.postgres import get_session
 from src.main import app
-from src.models import Base, User
+from src.models import Base, User, Post
 
 URL_PREFIX_AUTH = '/api/v1/users'
 URL_PREFIX_POST = '/api/v1/posts'
 TEST_USER = {'login': 'test_user', 'password': 'password'}
 SUCCESSFUL_ACCESS = {"message": "Access granted"}
+MAX_NUM_POSTS = 10
+USER_ID = 1
 
 
 @pytest.fixture(scope='session')
@@ -99,13 +103,38 @@ async def create_test_user(db_session):
 
 @pytest.fixture(scope='module')
 async def headers(create_test_user):
-    async with AsyncClient(app=app, base_url='http://test') as async_client:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url='http://test') as async_client:
         response = await async_client.post(
             f'{URL_PREFIX_AUTH}/auth', json=TEST_USER
         )
         token = response.json()
         headers = {'Authorization': f'Bearer {token["access_token"]}'}
         return headers
+
+
+@pytest.fixture(scope='module')
+def posts_data():
+    data = []
+    day_offset = 10
+    for i in range(1, MAX_NUM_POSTS + 1):
+        data.append(
+            {
+                'user_id': 1,
+                'title': f'Заголовок сообщения #{i}',
+                'content': f'Текст сообщения #{i}',
+                'created_at': datetime.utcnow() - timedelta(days=day_offset),
+            }
+        )
+        day_offset += 30
+    return data
+
+
+@pytest.fixture(scope='module')
+async def create_test_posts(db_session, posts_data, create_test_user):
+    stmt = insert(Post).values(posts_data)
+    await db_session.execute(stmt)
+    await db_session.commit()
 
 
 @app.get('/protected-route')
