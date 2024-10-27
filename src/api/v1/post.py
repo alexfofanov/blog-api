@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.auth import get_current_user
+from src.core.config import logger
 from src.db.postgres import get_session
 from src.models import User
 from src.repositories.post import post_crud
@@ -80,6 +81,12 @@ async def create_post(
     """
     post.user_id = user.id
     post = await post_crud.create(db=db, obj=post)
+    logger.info(
+        (
+            f'User [login:{user.login}, id:{user.id}] created post '
+            f'[id:{post.id}, title:{post.title}]'
+        )
+    )
 
     return post
 
@@ -107,6 +114,13 @@ async def delete_post(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Post(id={post_id}) not found',
         )
+    logger.info(
+        (
+            f'User [login:{user.login}, id:{user.id}] deleted post '
+            f'[id:{post.id}, title:{post.title}]'
+        )
+    )
+
 
     return post
 
@@ -135,6 +149,12 @@ async def update_post(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Post(id={post_id}) not found',
         )
+    logger.info(
+        (
+            f'User [login:{user.login}, id:{user.id}] updated post '
+            f'[id:{post.id}, title:{post.title}]'
+        )
+    )
 
     return post
 
