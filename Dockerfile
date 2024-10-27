@@ -11,11 +11,11 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root
 
 COPY ./src ./src
-# COPY ./tests ./tests
+COPY ./tests ./tests
 COPY ./migrations ./migrations
-COPY alembic.ini .
 COPY .env .
 COPY alembic.ini .
+COPY pytest.ini .
 
 EXPOSE 8000
 

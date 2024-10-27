@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import pytest
@@ -15,7 +15,7 @@ from src.core.auth import get_current_user, hash_password
 from src.core.config import settings
 from src.db.postgres import get_session
 from src.main import app
-from src.models import Base, User, Post
+from src.models import Base, Post, User
 
 URL_PREFIX_AUTH = '/api/v1/users'
 URL_PREFIX_POST = '/api/v1/posts'
@@ -104,7 +104,9 @@ async def create_test_user(db_session):
 @pytest.fixture(scope='module')
 async def headers(create_test_user):
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url='http://test') as async_client:
+    async with AsyncClient(
+        transport=transport, base_url='http://test'
+    ) as async_client:
         response = await async_client.post(
             f'{URL_PREFIX_AUTH}/auth', json=TEST_USER
         )
@@ -117,13 +119,14 @@ async def headers(create_test_user):
 def posts_data():
     data = []
     day_offset = 10
+    current_time = datetime.now(UTC).replace(tzinfo=None)
     for i in range(1, MAX_NUM_POSTS + 1):
         data.append(
             {
                 'user_id': 1,
                 'title': f'Заголовок сообщения #{i}',
                 'content': f'Текст сообщения #{i}',
-                'created_at': datetime.utcnow() - timedelta(days=day_offset),
+                'created_at': current_time - timedelta(days=day_offset),
             }
         )
         day_offset += 30
